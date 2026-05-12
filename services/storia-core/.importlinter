@@ -1,0 +1,45 @@
+[importlinter]
+root_packages =
+    storia
+include_external_packages = True
+
+# Rules §2 — layer direction enforced mechanically.
+[importlinter:contract:layers]
+name = Hexagonal layers — domain inward, infrastructure outward
+type = layers
+layers =
+    storia.presentation
+    storia.infrastructure
+    storia.application
+    storia.domain
+
+# Rules §2 — domain is SDK-free.
+[importlinter:contract:domain-purity]
+name = Domain imports nothing from third-party SDKs
+type = forbidden
+source_modules =
+    storia.domain
+forbidden_modules =
+    fastapi
+    anthropic
+    psycopg
+    google
+    sqlalchemy
+    httpx
+    requests
+# Note: pydantic BaseModel / Field are permitted in domain — pure dataclass-shaped use only.
+# All other pydantic surface (HttpUrl, networks, validators with side-effects) is forbidden by review.
+
+# Rules §3.2 — application depends only on domain.
+[importlinter:contract:application-pure]
+name = Application uses only domain
+type = forbidden
+source_modules =
+    storia.application
+forbidden_modules =
+    storia.infrastructure
+    storia.presentation
+    fastapi
+    anthropic
+    psycopg
+    google

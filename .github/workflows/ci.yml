@@ -1,0 +1,59 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: services/storia-core } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - name: Layer boundaries (Rules §2)
+        run: lint-imports
+      - name: Type check
+        run: mypy src
+      - name: Tests + coverage floor (Rules §5)
+        run: pytest
+      - name: Dependency audit (Rules §4)
+        run: pip-audit
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with: { tool: cargo-deny,cargo-audit }
+      - run: cargo build --workspace --all-targets
+      - run: cargo test --workspace
+      - name: Supply chain + layer policy (Rules §1, §2, §4)
+        run: cargo deny check
+      - run: cargo audit
+
+  console:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: console } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci || npm install
+      - name: Layer boundaries (Rules §2)
+        run: npx eslint .
+      - run: npm test
+      - run: npm audit --audit-level=high
+
+  signed-commits:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Verify signed commits (Rules §4 supply chain)
+        run: |
+          git log --pretty="format:%H %G?" origin/main..HEAD | awk '$2 != "G" {print "unsigned commit "$1; exit 1}'
