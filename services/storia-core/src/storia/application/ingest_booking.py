@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from storia.domain.ids import OperatorId, PropertyId
+from storia.domain.tenant import TenantContext
 from storia.domain.models import (
     Booking,
     GuestEvent,
@@ -32,6 +33,7 @@ from storia.domain.ports import (
 
 @dataclass(frozen=True, slots=True)
 class IngestBookingRequest:
+    tenant: TenantContext
     operator_id: OperatorId
     property_id: PropertyId
     booking: Booking
@@ -57,6 +59,7 @@ class IngestBooking:
         self._audit = audit
 
     async def __call__(self, req: IngestBookingRequest) -> IngestBookingResult:
+        req.tenant.assert_owns(req.operator_id)  # Rules §3.6
         email_hash = _sha256(req.guest_email.lower().strip()) if req.guest_email else None
         phone_hash = _sha256(req.guest_phone_e164) if req.guest_phone_e164 else None
 

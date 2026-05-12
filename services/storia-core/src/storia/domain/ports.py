@@ -67,6 +67,10 @@ class ActionQueue(Protocol):
 
     async def list_pending(self, property_id: PropertyId) -> list[Action]: ...
 
+    async def get(self, action_id: "object") -> Action | None: ...
+
+    async def replace(self, action: Action) -> None: ...
+
 
 @runtime_checkable
 class AuditLog(Protocol):
@@ -75,12 +79,59 @@ class AuditLog(Protocol):
     async def emit(self, *, actor: str, action: str, before_hash: str | None,
                    after_hash: str, correlation_id: str) -> None: ...
 
+    async def list_recent(self, *, limit: int = 100) -> list[dict[str, object]]: ...
+
 
 @runtime_checkable
 class PlaybookRepository(Protocol):
     async def get(self, playbook_id: PlaybookId) -> "object": ...  # returns Playbook
 
     async def list_for_property(self, property_id: PropertyId) -> list["object"]: ...
+
+
+@runtime_checkable
+class PosAdapter(Protocol):
+    """Point-of-sale read port (PRD §7.1 Tier 1 — Lightspeed; Tier 3 — Square/Toast)."""
+
+    pos_name: str
+
+    async def fetch_transactions_since(self, *, property_id: PropertyId, since: datetime
+                                       ) -> list[dict[str, object]]: ...
+
+
+@runtime_checkable
+class ReviewsAdapter(Protocol):
+    """Reviews read port (TrustYou/Revinate). Returns sentiment-scored items."""
+
+    source: str
+
+    async def fetch_recent_reviews(self, *, property_id: PropertyId, since: datetime
+                                   ) -> list[dict[str, object]]: ...
+
+
+@runtime_checkable
+class FlightAdapter(Protocol):
+    """FlightAware-shaped enrichment."""
+
+    async def status(self, *, flight_number: str, date: datetime) -> dict[str, object]: ...
+
+
+@runtime_checkable
+class WeatherAdapter(Protocol):
+    """OpenWeather-shaped enrichment."""
+
+    async def forecast(self, *, lat: float, lon: float, when: datetime) -> dict[str, object]: ...
+
+
+@runtime_checkable
+class ReviewQueue(Protocol):
+    """Operator review queue for probabilistic identity matches (PRD §6.3)."""
+
+    async def enqueue_merge_candidate(self, *, operator_id: OperatorId,
+                                      candidate_a_id: GuestId, candidate_b_id: GuestId,
+                                      confidence: float, evidence: dict[str, str]) -> None: ...
+
+    async def list_pending(self, operator_id: OperatorId) -> list[dict[str, object]]: ...
 
 
 @runtime_checkable

@@ -19,6 +19,7 @@ from uuid import UUID
 from storia.application.ingest_booking import IngestBooking, IngestBookingRequest
 from storia.domain.ids import OperatorId, PropertyId
 from storia.domain.models import Booking
+from storia.domain.tenant import TenantContext
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,8 +36,10 @@ class GuestSignalServer:
             rate_code=payload["booking"].get("rate_code"),
             channel=payload["booking"].get("channel"),
         )
+        operator = OperatorId(UUID(payload["operator_id"]))
         req = IngestBookingRequest(
-            operator_id=OperatorId(UUID(payload["operator_id"])),
+            tenant=TenantContext(operator_id=operator),
+            operator_id=operator,
             property_id=PropertyId(UUID(payload["property_id"])),
             booking=booking,
             guest_display_name=payload["guest"]["display_name"],

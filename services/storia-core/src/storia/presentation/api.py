@@ -16,10 +16,20 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from uuid import UUID as _UUID
+
+from storia.application.decide_action import (
+    ActionNotFound,
+    DecideAction,
+    DecideActionRequest,
+)
 from storia.application.ingest_booking import IngestBooking, IngestBookingRequest
 from storia.application.shift_view import ShiftView, ShiftViewRequest
+from storia.domain.ids import ActionId
+from storia.domain.ports import AuditLog
 from storia.domain.ids import OperatorId, PropertyId
 from storia.domain.models import Booking
+from storia.domain.tenant import TenantContext
 
 
 class BookingIn(BaseModel):
@@ -61,7 +71,15 @@ class IngestBookingOut(BaseModel):
     sequence: int
 
 
-def build_app(*, ingest: IngestBooking, shift: ShiftView) -> FastAPI:
+class DecideActionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: str = Field(pattern="^(approve|reject|reverse)$")
+    actor: str = Field(min_length=1)
+    correlation_id: str = Field(min_length=1)
+
+
+def build_app(*, ingest: IngestBooking, shift: ShiftView,
+              decide: DecideAction, audit: AuditLog) -> FastAPI:
     """Composition-root factory. The composition root wires concrete adapters."""
     app = FastAPI(title="STORIA Operator API", version="0.1.0")
 
@@ -88,8 +106,10 @@ def build_app(*, ingest: IngestBooking, shift: ShiftView) -> FastAPI:
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
 
+        operator = OperatorId(body.operator_id)
         result = await uc(IngestBookingRequest(
-            operator_id=OperatorId(body.operator_id),
+            tenant=TenantContext(operator_id=operator),
+            operator_id=operator,
             property_id=PropertyId(body.property_id),
             booking=booking,
             guest_display_name=body.guest.display_name,
@@ -110,6 +130,27 @@ def build_app(*, ingest: IngestBooking, shift: ShiftView) -> FastAPI:
             "in_stay": [a.model_dump(mode="json") for a in resp.in_stay],
             "departing": [a.model_dump(mode="json") for a in resp.departing],
         }
+
+    @app.post("/v1/actions/{action_id}:decide")
+    async def decide_action(action_id: UUID, body: DecideActionIn) -> dict[str, object]:
+        try:
+            result = await decide(DecideActionRequest(
+                action_id=ActionId(action_id),
+                decision=body.decision,  # type: ignore[arg-type]
+                actor=body.actor,
+                correlation_id=body.correlation_id,
+            ))
+        except ActionNotFound as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        return result.model_dump(mode="json")
+
+    @app.get("/v1/audit")
+    async def audit_view(limit: int = 100) -> dict[str, object]:
+        if limit < 1 or limit > 1000:
+            raise HTTPException(status_code=422, detail="limit must be in [1, 1000]")
+        return {"entries": await audit.list_recent(limit=limit)}
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:

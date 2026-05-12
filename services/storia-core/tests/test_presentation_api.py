@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
+from storia.application.decide_action import DecideAction
 from storia.application.ingest_booking import IngestBooking
 from storia.application.shift_view import ShiftView
 from storia.infrastructure.in_memory import (
@@ -19,7 +20,7 @@ from storia.presentation.api import build_app
 
 
 @pytest.fixture
-def client() -> TestClient:
+def wired() -> dict[str, object]:
     events = InMemoryEventStore()
     identity = InMemoryIdentityResolver()
     bus = InMemorySignalBus()
@@ -27,7 +28,14 @@ def client() -> TestClient:
     audit = InMemoryAuditLog()
     ingest = IngestBooking(events=events, identity=identity, bus=bus, audit=audit)
     shift = ShiftView(queue=queue)
-    return TestClient(build_app(ingest=ingest, shift=shift))
+    decide = DecideAction(queue=queue, audit=audit)
+    app = build_app(ingest=ingest, shift=shift, decide=decide, audit=audit)
+    return {"client": TestClient(app), "queue": queue, "audit": audit}
+
+
+@pytest.fixture
+def client(wired: dict[str, object]) -> TestClient:
+    return wired["client"]  # type: ignore[return-value]
 
 
 def test_healthz(client: TestClient) -> None:
@@ -96,6 +104,71 @@ def test_shift_view_empty(client: TestClient) -> None:
     assert r.status_code == 200
     body = r.json()
     assert body == {"arriving": [], "in_stay": [], "departing": []}
+
+
+def test_audit_endpoint_returns_recorded_entries(wired: dict[str, object]) -> None:
+    client: TestClient = wired["client"]  # type: ignore[assignment]
+    r = client.post("/v1/bookings:ingest", json={
+        "operator_id": str(uuid4()),
+        "property_id": str(uuid4()),
+        "booking": {
+            "pms_booking_id": "R-A",
+            "pms": "mews",
+            "arrival": "2026-10-01T14:00:00+00:00",
+            "departure": "2026-10-03T11:00:00+00:00",
+        },
+        "guest": {"display_name": "G"},
+        "correlation_id": "audit-1",
+    })
+    assert r.status_code == 200
+
+    a = client.get("/v1/audit?limit=10")
+    assert a.status_code == 200
+    entries = a.json()["entries"]
+    assert any(e["correlation_id"] == "audit-1" for e in entries)
+
+
+def test_audit_endpoint_rejects_bad_limit(client: TestClient) -> None:
+    assert client.get("/v1/audit?limit=0").status_code == 422
+    assert client.get("/v1/audit?limit=99999").status_code == 422
+
+
+def test_decide_action_approve_path(wired: dict[str, object]) -> None:
+    import asyncio
+    from uuid import uuid4 as _u
+
+    from storia.domain.ids import PropertyId, StayId
+    from storia.domain.models import Action
+
+    client: TestClient = wired["client"]  # type: ignore[assignment]
+    queue = wired["queue"]
+
+    action = Action.propose(
+        stay_id=StayId(_u()), property_id=PropertyId(_u()),
+        playbook_id=_u(), kind="pms.note.add",
+        payload={}, reasoning=("seed",), reversible=True, auto_approved=False,
+    )
+    asyncio.get_event_loop().run_until_complete(queue.enqueue(action))  # type: ignore[union-attr]
+
+    r = client.post(f"/v1/actions/{action.id}:decide", json={
+        "decision": "approve", "actor": "gm@example.com", "correlation_id": "dec-1",
+    })
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "executed"
+
+
+def test_decide_action_404_for_unknown(client: TestClient) -> None:
+    r = client.post(f"/v1/actions/{uuid4()}:decide", json={
+        "decision": "approve", "actor": "x", "correlation_id": "c",
+    })
+    assert r.status_code == 404
+
+
+def test_decide_action_rejects_invalid_decision(client: TestClient) -> None:
+    r = client.post(f"/v1/actions/{uuid4()}:decide", json={
+        "decision": "obliterate", "actor": "x", "correlation_id": "c",
+    })
+    assert r.status_code == 422
 
 
 def test_composition_root_imports() -> None:

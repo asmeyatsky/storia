@@ -55,7 +55,10 @@ async def test_mews_booking_to_shift_view_end_to_end() -> None:
     )
 
     ingest = IngestBooking(events=events, identity=identity, bus=bus, audit=audit)
+    from storia.domain.tenant import TenantContext
+    tenant = TenantContext(operator_id=operator_id)
     result = await ingest(IngestBookingRequest(
+        tenant=tenant,
         operator_id=operator_id,
         property_id=property_id,
         booking=booking,
@@ -81,6 +84,7 @@ async def test_mews_booking_to_shift_view_end_to_end() -> None:
 
     # Idempotent identity: re-ingesting the same email yields the same guest.
     result2 = await ingest(IngestBookingRequest(
+        tenant=tenant,
         operator_id=operator_id,
         property_id=property_id,
         booking=Booking.create(

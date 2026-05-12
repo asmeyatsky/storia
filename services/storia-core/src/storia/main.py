@@ -9,6 +9,7 @@ Single place where SDK instantiation happens. Domain and application stay SDK-fr
 """
 from __future__ import annotations
 
+from storia.application.decide_action import DecideAction
 from storia.application.ingest_booking import IngestBooking
 from storia.application.queue_pre_arrival_actions import QueuePreArrivalActions
 from storia.application.shift_view import ShiftView
@@ -38,12 +39,13 @@ def build() -> object:
     ingest = IngestBooking(events=events, identity=identity, bus=bus, audit=audit)
     queue_uc = QueuePreArrivalActions(reasoner=reasoner, queue=queue, audit=audit)
     shift = ShiftView(queue=queue)
+    decide = DecideAction(queue=queue, audit=audit)
 
     # MCP servers per bounded context (Rules §3.5).
     GuestSignalServer(ingest_use_case=ingest)
     ActionEngineServer(queue_use_case=queue_uc, shift_use_case=shift)
 
-    return build_app(ingest=ingest, shift=shift)
+    return build_app(ingest=ingest, shift=shift, decide=decide, audit=audit)
 
 
 app = build()
