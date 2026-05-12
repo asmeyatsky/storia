@@ -156,6 +156,25 @@ class InMemoryReviewQueue:
         return list(self._items[str(operator_id)])
 
 
+class InMemoryCrmAdapter:
+    """CRM stub (Salesforce / HubSpot port). Real adapters live in dedicated modules
+    per PRD §7.1 Tier 2/3."""
+
+    def __init__(self, *, crm_name: str = "stub-crm",
+                 contacts: dict[str, dict[str, object]] | None = None,
+                 interactions: dict[str, list[dict[str, object]]] | None = None) -> None:
+        self.crm_name = crm_name
+        self._contacts = contacts or {}
+        self._interactions = interactions or {}
+
+    async def fetch_contact(self, *, email_hash: str) -> dict[str, object] | None:
+        return self._contacts.get(email_hash)
+
+    async def fetch_interactions_since(self, *, email_hash: str, since: datetime
+                                       ) -> list[dict[str, object]]:
+        return list(self._interactions.get(email_hash, []))
+
+
 class InMemoryPosAdapter:
     pos_name = "stub"
 

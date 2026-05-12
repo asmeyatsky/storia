@@ -4,6 +4,7 @@ members = [
     "crates/storia-events",
     "crates/storia-connectors-mews",
     "crates/storia-connectors-cloudbeds",
+    "crates/storia-connectors-opera",
 ]
 
 [workspace.package]

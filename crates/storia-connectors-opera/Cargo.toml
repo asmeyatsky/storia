@@ -1,0 +1,22 @@
+[package]
+name = "storia-connectors-opera"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Layer (Rules §2): infrastructure. Wraps OPERA Web Services (OWS) — SOAP/XML, legacy
+# but mandatory for branded-chain segment per PRD §7.1 Tier 2.
+
+[dependencies]
+storia-events = { path = "../storia-events", version = "0.1" }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }

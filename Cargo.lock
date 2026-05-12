@@ -1720,6 +1720,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "storia-connectors-opera"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "storia-events",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "storia-events"
 version = "0.1.0"
 dependencies = [

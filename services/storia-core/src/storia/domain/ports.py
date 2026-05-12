@@ -90,6 +90,18 @@ class PlaybookRepository(Protocol):
 
 
 @runtime_checkable
+class CrmAdapter(Protocol):
+    """CRM read port (Salesforce, HubSpot). PRD §7.1 Tier 2/3."""
+
+    crm_name: str
+
+    async def fetch_contact(self, *, email_hash: str) -> dict[str, object] | None: ...
+
+    async def fetch_interactions_since(self, *, email_hash: str, since: datetime
+                                       ) -> list[dict[str, object]]: ...
+
+
+@runtime_checkable
 class PosAdapter(Protocol):
     """Point-of-sale read port (PRD §7.1 Tier 1 — Lightspeed; Tier 3 — Square/Toast)."""
 
@@ -132,6 +144,18 @@ class ReviewQueue(Protocol):
                                       confidence: float, evidence: dict[str, str]) -> None: ...
 
     async def list_pending(self, operator_id: OperatorId) -> list[dict[str, object]]: ...
+
+
+@runtime_checkable
+class MetricsReader(Protocol):
+    """Read port for property-level KPI measurements (PRD §9.1).
+
+    Implementations: BigQuery (canonical analytics store per Rules §1), Postgres rollups,
+    in-memory for tests. Domain consumes only the canonical PropertyKpis shape.
+    """
+
+    async def read(self, *, property_id: PropertyId,
+                   window_days: int) -> "object": ...  # returns PropertyKpis
 
 
 @runtime_checkable

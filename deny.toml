@@ -38,7 +38,7 @@ wildcards = "deny"
 # - reqwest and sqlx are allowed only inside connector / infrastructure crates.
 [[bans.deny]]
 name = "reqwest"
-wrappers = ["storia-connectors-mews", "storia-connectors-cloudbeds"]
+wrappers = ["storia-connectors-mews", "storia-connectors-cloudbeds", "storia-connectors-opera"]
 
 [[bans.deny]]
 name = "sqlx"
