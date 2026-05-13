@@ -147,6 +147,55 @@ class ReviewQueue(Protocol):
 
 
 @runtime_checkable
+class TokenProvider(Protocol):
+    """OAuth token issuer for PMS connectors. Tokens are fetched from Secret Manager +
+    Workload Identity (Rules §4.1). Composition root injects an adapter; never inline secrets."""
+
+    async def token_for(self, *, integration: str, operator_id: OperatorId) -> str: ...
+
+
+@runtime_checkable
+class AgentProvenance(Protocol):
+    """SYNTHERA™ VAID port (ADR 0002). Every Action Engine agent has a verifiable identity;
+    every action is provably attributed."""
+
+    async def sign(self, *, agent_id: str, action_id: str, body_hash: str) -> str: ...
+
+    async def verify(self, *, signature: str, agent_id: str, action_id: str,
+                     body_hash: str) -> bool: ...
+
+
+@runtime_checkable
+class EvalHarness(Protocol):
+    """CRUCIBLE™ regression suite port (ADR 0002). Gate every model + prompt change."""
+
+    async def run_suite(self, *, suite: str, model_id: str,
+                        prompt_template_hash: str) -> dict[str, object]: ...
+
+
+@runtime_checkable
+class PolicyGuard(Protocol):
+    """SENTINEL™ / CODEX™ policy enforcement port (ADR 0002). Returns True iff the action
+    is permitted under the operator's currently effective policy bundle."""
+
+    async def allow(self, *, operator_id: OperatorId, action_kind: str,
+                    payload_hash: str) -> bool: ...
+
+
+@runtime_checkable
+class FieldEncryptor(Protocol):
+    """PII field-level encryption (PRD §6.5). Per-tenant CMEK keys (ADR 0007)."""
+
+    async def encrypt(self, *, operator_id: OperatorId, plaintext: str) -> str: ...
+
+    async def decrypt(self, *, operator_id: OperatorId, ciphertext: str) -> str: ...
+
+    async def rotate(self, *, operator_id: OperatorId) -> None: ...
+
+    async def crypto_erase(self, *, operator_id: OperatorId) -> None: ...
+
+
+@runtime_checkable
 class MetricsReader(Protocol):
     """Read port for property-level KPI measurements (PRD §9.1).
 

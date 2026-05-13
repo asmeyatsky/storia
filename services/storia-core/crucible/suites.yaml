@@ -1,0 +1,17 @@
+# CRUCIBLE™ regression suites (ADR 0002, ADR 0004). Every model + prompt change must
+# pass these before promotion. CI runs `python -m crucible_run` to gate.
+#
+# This file is the source of truth — adding a model swap requires a new row here.
+suites:
+  - name: pre_arrival_actions_v1
+    model_id: claude-opus-4-7
+    prompt_template_hash: pre_arrival_v1
+    min_score: 0.85
+  - name: signal_routing_v1
+    model_id: claude-haiku-4-5
+    prompt_template_hash: signal_router_v1
+    min_score: 0.90
+  - name: recovery_summarisation_v1
+    model_id: claude-opus-4-7
+    prompt_template_hash: recovery_v1
+    min_score: 0.85

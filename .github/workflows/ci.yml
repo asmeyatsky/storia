@@ -21,6 +21,8 @@ jobs:
         run: pytest
       - name: Dependency audit (Rules §4)
         run: pip-audit
+      - name: CRUCIBLE eval gate (ADR 0002, ADR 0004)
+        run: python -m crucible.runner
 
   rust:
     runs-on: ubuntu-latest
